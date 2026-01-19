@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar - RaffaStore</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="auth-body">
+
+    <div class="auth-container">
+        <div class="auth-header">
+            <h2>Buat Akun</h2>
+            <p>Gabung jadi member RaffaStore.</p>
+        </div>
+        
+        <form onsubmit="event.preventDefault(); handleRegister();">
+            <div class="input-group">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="reg-username" placeholder="Buat Username" required>
+            </div>
+            <div class="input-group">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="reg-password" placeholder="Buat Password" required>
+            </div>
+            
+            <button type="submit" class="btn-auth">DAFTAR AKUN</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Sudah punya akun? <a href="login.html">Login disini</a></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

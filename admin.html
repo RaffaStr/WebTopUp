@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Dashboard Pro | Raffa Store Panel</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* Admin Specific Styles */
+        :root { --admin-bg: #0f172a; --admin-card: #1e293b; --admin-border: #334155; }
+        body { background-color: var(--admin-bg); }
+        
+        .admin-card { background: var(--admin-card); padding: 20px; border-radius: 12px; border: 1px solid var(--admin-border); margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .admin-table th { text-align: left; padding: 12px; border-bottom: 2px solid var(--admin-border); color: #94a3b8; font-weight: 600; }
+        .admin-table td { padding: 15px 12px; border-bottom: 1px solid var(--admin-border); vertical-align: middle; }
+        
+        /* Status Select Styling */
+        .status-select {
+            padding: 6px; border-radius: 6px; border: 1px solid var(--admin-border);
+            background: var(--admin-bg); color: white; font-size: 0.8rem; cursor: pointer;
+            font-weight: bold; width: 100%; max-width: 140px;
+        }
+        /* Warna Status */
+        .status-Pending { color: #eab308; border-color: #eab308; }      /* Kuning */
+        .status-SudahBayar { color: #3b82f6; border-color: #3b82f6; }   /* Biru */
+        .status-Proses { color: #f97316; border-color: #f97316; }       /* Orange */
+        .status-Sukses { color: #22c55e; border-color: #22c55e; }       /* Hijau */
+        .status-Error { color: #ef4444; border-color: #ef4444; }        /* Merah */
+
+        /* Image Upload Box */
+        .img-upload-box {
+            border: 2px dashed var(--admin-border); padding: 15px; border-radius: 10px;
+            text-align: center; cursor: pointer; position: relative; transition: 0.3s;
+        }
+        .img-upload-box:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+        .img-preview {
+            width: 100%; height: 150px; object-fit: cover; border-radius: 8px;
+            display: none; margin-top: 10px; border: 1px solid var(--admin-border);
+        }
+        
+        .btn-action { padding: 8px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn-blue { background: #3b82f6; color: white; }
+        .btn-blue:hover { background: #2563eb; }
+        .btn-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid #ef4444; }
+        .btn-green { background: #22c55e; color: white; }
+        
+        /* Code Area */
+        #code-area { display: none; margin-top: 15px; background: #000; padding: 10px; border-radius: 8px; }
+        textarea { width: 100%; height: 100px; background: transparent; color: #0f0; border: none; font-family: monospace; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar" style="border-bottom: 1px solid var(--admin-border);">
+        <div class="container nav-wrapper">
+            <div class="nav-brand" style="display:flex; align-items:center; gap:10px;">
+                <i class="fa-solid fa-shield-cat" style="color: var(--color-primary); font-size: 1.5rem;"></i> 
+                <div>
+                    <span style="font-weight: 800; letter-spacing: 0.5px;">RAFFA<span style="color:var(--color-primary)">PANEL</span></span>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-icon-link" title="Lihat Website"><i class="fa-solid fa-globe"></i></a>
+                <a href="#" onclick="logout()" style="color: #ef4444; font-weight: 700;">Keluar</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 30px; padding-bottom: 80px;">
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fa-solid fa-sack-dollar stat-icon" style="color: #22c55e;"></i>
+                <div class="stat-info"><h3 id="stat-omset">Rp 0</h3><p>Omset Masuk</p></div>
+            </div>
+            <div class="stat-card">
+                <i class="fa-solid fa-cart-shopping stat-icon" style="color: #3b82f6;"></i>
+                <div class="stat-info"><h3 id="stat-order">0</h3><p>Total Order</p></div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <h3 style="margin-bottom: 15px; color: var(--color-primary);"><i class="fa-solid fa-box-open"></i> Tambah Produk & Stok</h3>
+            
+            <div style="display: grid; gap: 15px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8;">Kategori</label>
+                        <select id="cat-id" class="form-input">
+                            <option value="stok_akun">Stok Akun (Sultan)</option>
+                            <option value="ml">Mobile Legends</option>
+                            <option value="ff">Free Fire</option>
+                            <option value="panel_bot">Panel Bot</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:#94a3b8;">Harga (Angka)</label>
+                        <input type="number" id="prod-price" class="form-input" placeholder="Contoh: 50000">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:0.8rem; color:#94a3b8;">Nama Produk</label>
+                    <input type="text" id="prod-name" class="form-input" placeholder="Contoh: Akun Sultan S1 Old">
+                </div>
+
+                <div>
+                    <label style="font-size:0.8rem; color:#94a3b8;">Foto Produk (Wajib untuk Akun)</label>
+                    <div class="img-upload-box" onclick="document.getElementById('prod-img').click()">
+                        <input type="file" id="prod-img" accept="image/*" style="display:none;" onchange="handleImagePreview(this)">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.5rem; color:var(--color-primary); margin-bottom:5px;"></i>
+                        <p style="font-size:0.8rem; color:#94a3b8; margin:0;">Klik untuk upload foto</p>
+                    </div>
+                    <img id="img-preview" class="img-preview">
+                </div>
+
+                <button onclick="addProduct()" class="btn-action btn-blue">SIMPAN SEMENTARA</button>
+            </div>
+
+            <div style="margin-top: 25px; border-top: 1px dashed var(--admin-border); padding-top: 15px;">
+                <h4 style="margin-bottom:5px; color:#10b981;">🚀 Update Permanen</h4>
+                <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Agar produk muncul di HP orang lain, ambil kode ini dan paste di file <b>database.js</b>.</p>
+                
+                <button onclick="generateCode()" class="btn-action btn-green">AMBIL KODE DATABASE</button>
+                
+                <div id="code-area">
+                    <textarea id="result-code" readonly></textarea>
+                    <button onclick="copyCode()" class="btn-action btn-blue" style="margin-top:5px; font-size:0.8rem;">COPY KODE</button>
+                </div>
+
+                <button onclick="clearProds()" class="btn-action btn-red" style="width:auto; font-size:0.75rem; margin-top:15px;">Reset Semua Produk</button>
+            </div>
+        </div>
+
+        <div class="admin-card" style="padding: 0; overflow: hidden;">
+            <div style="padding: 20px; border-bottom: 1px solid var(--admin-border); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">📦 Pesanan Masuk</h3>
+                <button onclick="renderOrders()" style="background:transparent; border:none; color:white; cursor:pointer;"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Invoice / Tgl</th>
+                            <th style="width: 35%;">Detail Item</th>
+                            <th style="width: 40%;">Status Order</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-list"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <h3>💬 Balas Ulasan</h3>
+            <div id="review-list-admin" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;"></div>
+            <button onclick="clearReviews()" class="btn-action btn-red" style="margin-top: 20px;">Hapus Semua Ulasan</button>
+        </div>
+
+    </div>
+
+    <script src="database.js"></script>
+
+    <script>
+        const KEYS = {
+            session: "raffa_session_v200", 
+            orders: "raffa_orders_v200",
+            users: "raffa_users_v200",
+            customProds: "raffa_custom_products_v200",
+            reviews: "raffa_reviews_v200"
+        };
+
+        // 1. CEK LOGIN
+        function checkAdmin() {
+            const session = JSON.parse(localStorage.getItem(KEYS.session));
+            if (!session || session.role !== 'admin') {
+                alert("⛔ Akses Ditolak!");
+                window.location.href = 'index.html';
+            }
+        }
+
+        // 2. LOGOUT
+        function logout() {
+            if(confirm("Keluar dari Panel?")) {
+                localStorage.removeItem(KEYS.session);
+                window.location.href = 'index.html';
+            }
+        }
+
+        // --- FITUR UPLOAD GAMBAR ---
+        let currentImageBase64 = "";
+
+        function handleImagePreview(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    currentImageBase64 = reader.result; // Simpan Base64
+                    const img = document.getElementById('img-preview');
+                    img.src = currentImageBase64;
+                    img.style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // --- TAMBAH PRODUK ---
+        function addProduct() {
+            const cat = document.getElementById('cat-id').value;
+            const name = document.getElementById('prod-name').value;
+            const price = parseInt(document.getElementById('prod-price').value);
+
+            if(!name || !price) return alert("Nama & Harga Wajib Diisi!");
+
+            let data = JSON.parse(localStorage.getItem(KEYS.customProds)) || {};
+            if(!data[cat]) data[cat] = [];
+            
+            data[cat].push({ 
+                name: name, 
+                price: price, 
+                img: currentImageBase64 || null, // Simpan gambar jika ada
+                status: "🔥 Baru"
+            });
+            
+            localStorage.setItem(KEYS.customProds, JSON.stringify(data));
+            alert("Produk tersimpan di browser! Jangan lupa 'AMBIL KODE DATABASE' agar permanen.");
+            
+            // Reset Form
+            document.getElementById('prod-name').value = '';
+            document.getElementById('prod-price').value = '';
+            document.getElementById('img-preview').style.display = 'none';
+            document.getElementById('prod-img').value = '';
+            currentImageBase64 = "";
+        }
+
+        function generateCode() {
+            const data = JSON.parse(localStorage.getItem(KEYS.customProds));
+            if(!data) return alert("Belum ada produk baru.");
+
+            let code = "// --- COPAS INI KE DATABASE.JS (BAGIAN PRODUCTS) ---\n\n";
+            for (const [key, items] of Object.entries(data)) {
+                code += `// Kategori: ${key}\n`;
+                items.forEach(i => {
+                    const imgStr = i.img ? `, img: "${i.img}"` : "";
+                    code += `{ name: "${i.name}", price: ${i.price}${imgStr}, status: "🔥 Baru" },\n`;
+                });
+            }
+            
+            document.getElementById('code-area').style.display = 'block';
+            document.getElementById('result-code').value = code;
+        }
+
+        function copyCode() {
+            const copyText = document.getElementById("result-code");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Kode disalin! Paste di database.js");
+        }
+
+        function clearProds() {
+            if(confirm("Hapus semua produk sementara?")) {
+                localStorage.removeItem(KEYS.customProds);
+                location.reload();
+            }
+        }
+
+        // --- RENDER ORDER (STATUS BERTINGKAT) ---
+        function renderOrders() {
+            const tbody = document.getElementById('order-list');
+            const orders = JSON.parse(localStorage.getItem(KEYS.orders)) || [];
+            
+            if(orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#64748b;">Belum ada pesanan masuk.</td></tr>';
+                return;
+            }
+
+            let omset = 0;
+
+            tbody.innerHTML = orders.map((o, idx) => {
+                // Hitung omset hanya yang Sukses
+                if(o.status === 'Sukses') omset += parseInt(o.itemPrice || 0);
+
+                // Warna Status Select
+                const cleanStatus = (o.status || 'Pending').replace(/\s/g, '');
+                const statusClass = `status-${cleanStatus}`;
+
+                return `
+                <tr>
+                    <td>
+                        <b style="color:var(--color-primary);">#${o.invoiceId}</b><br>
+                        <small style="color:#64748b; font-size:0.75rem;">${o.timestamp}</small>
+                    </td>
+                    <td>
+                        <div style="font-weight:bold; color:white;">${o.gameName}</div>
+                        <div style="font-size:0.85rem; color:#94a3b8;">${o.itemName}</div>
+                        <div style="font-family:monospace; background:#0f172a; padding:4px 8px; border-radius:4px; margin-top:5px; font-size:0.75rem; border:1px solid #334155;">
+                            ${o.userData}
+                        </div>
+                    </td>
+                    <td>
+                        <select onchange="updateStatus(${idx}, this.value)" class="status-select ${statusClass}">
+                            <option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>🟡 Pending</option>
+                            <option value="SudahBayar" ${o.status === 'SudahBayar' ? 'selected' : ''}>🔵 Sudah Bayar</option>
+                            <option value="Proses" ${o.status === 'Proses' ? 'selected' : ''}>🟠 Proses</option>
+                            <option value="Sukses" ${o.status === 'Sukses' ? 'selected' : ''}>🟢 Sukses</option>
+                            <option value="Error" ${o.status === 'Error' ? 'selected' : ''}>🔴 Error</option>
+                        </select>
+                    </td>
+                </tr>
+            `}).join('');
+
+            document.getElementById('stat-omset').innerText = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(omset);
+            document.getElementById('stat-order').innerText = orders.length;
+        }
+
+        function updateStatus(index, newStatus) {
+            let orders = JSON.parse(localStorage.getItem(KEYS.orders)) || [];
+            orders[index].status = newStatus;
+            localStorage.setItem(KEYS.orders, JSON.stringify(orders));
+            renderOrders(); // Refresh table untuk update warna dropdown
+        }
+
+        // --- BALAS ULASAN ---
+        function renderReviews() {
+            const container = document.getElementById('review-list-admin');
+            const reviews = JSON.parse(localStorage.getItem(KEYS.reviews)) || [];
+            
+            if(reviews.length === 0) {
+                container.innerHTML = '<p style="color:#64748b; text-align:center;">Belum ada ulasan.</p>';
+                return;
+            }
+
+            container.innerHTML = reviews.map((r, idx) => `
+                <div style="background:#0f172a; border:1px solid #334155; padding:15px; border-radius:8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <b>${r.name} <span style="color:#eab308;">★${r.stars}</span></b>
+                        <small style="color:#64748b;">${r.date}</small>
+                    </div>
+                    <p style="margin-bottom:10px; font-style:italic; color:#cbd5e1;">"${r.text}"</p>
+                    
+                    ${r.reply 
+                        ? `<div style="background:#1e293b; padding:8px; border-radius:6px; border-left:3px solid #3b82f6; font-size:0.85rem;">
+                             <b style="color:#3b82f6;">Admin:</b> ${r.reply}
+                           </div>`
+                        : `<div style="display:flex; gap:10px;">
+                             <input type="text" id="reply-${idx}" placeholder="Tulis balasan..." style="flex:1; padding:8px; border-radius:6px; border:1px solid #334155; background:#1e293b; color:white;">
+                             <button onclick="submitReply(${idx})" class="btn-action btn-blue" style="width:auto;">Kirim</button>
+                           </div>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        function submitReply(index) {
+            const text = document.getElementById(`reply-${index}`).value;
+            if(!text) return alert("Balasan tidak boleh kosong!");
+
+            let reviews = JSON.parse(localStorage.getItem(KEYS.reviews)) || [];
+            reviews[index].reply = text;
+            localStorage.setItem(KEYS.reviews, JSON.stringify(reviews));
+            
+            alert("Balasan terkirim!");
+            renderReviews();
+        }
+
+        function clearReviews() {
+            if(confirm("Hapus semua ulasan permanen?")) {
+                localStorage.removeItem(KEYS.reviews);
+                renderReviews();
+            }
+        }
+
+        // INIT
+        checkAdmin();
+        renderOrders();
+        renderReviews();
+
+        // Auto Refresh Table (Opsional)
+        setInterval(renderOrders, 30000); // Tiap 30 detik
+
+    </script>
+
+</body>
+</html>
