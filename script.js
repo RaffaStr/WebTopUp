@@ -693,241 +693,22 @@ const CartState = {
 };
 
 /* ==================================================================================================
-   MODULE 8: COMMERCE ENGINE (CORE LOGIC)
-   Logika bisnis utama: Render Produk, Kalkulator Joki, dan Proses Checkout.
+   MODULE 8: COMMERCE & TRANSACTION (UPDATED WITH MYSQL)
+   Menangani logika transaksi, checkout, dan integrasi Database PHP.
    ================================================================================================== */
 
 class Commerce {
+    
     /**
-     * Inisialisasi Commerce Engine.
-     */
-    static async init() {
-        if (typeof DATABASE === 'undefined') {
-            Logger.error('Commerce', 'CRITICAL: DATABASE.JS NOT LOADED');
-            UIManager.toast.error("Database Error! Silakan refresh halaman.");
-            return;
-        }
-
-        // 1. Merge Custom Products from Admin (LocalStorage) -> DATABASE
-        const customProds = StorageService.get(AppConfig.storage.keys.CUSTOM_PRODUCTS) || {};
-        for (const [key, items] of Object.entries(customProds)) {
-            if (DATABASE.products[key]) {
-                DATABASE.products[key] = [...DATABASE.products[key], ...items];
-            } else {
-                DATABASE.products[key] = items;
-            }
-        }
-
-        // 2. Render Initial UI Elements
-        if (document.getElementById('home-grid')) {
-            this.renderCategory('games'); // Default category
-            NewsSystem.render();
-            ReviewSystem.render();
-            
-            if (typeof this.renderProofs === 'function') {
-                this.renderProofs();
-            }
-        }
-
-        // 3. Finish Booting
-        await Utils.sleep(AppConfig.ui.loaderMinTime);
-        UIManager.hideLoader();
-    }
-
-    /**
-     * Menampilkan daftar produk berdasarkan kategori.
-     * @param {string} categoryId 
-     */
-    static renderCategory(categoryId) {
-        const grid = document.getElementById('home-grid');
-        const invoiceArea = document.getElementById('invoice-area');
-        
-        if (!grid) return;
-
-        // Reset View
-        grid.style.display = 'grid';
-        if (invoiceArea) invoiceArea.style.display = 'none';
-        grid.innerHTML = '';
-
-        // Update Active Tab UI
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-            // Cek apakah tombol ini yang diklik (berdasarkan onclick attr)
-            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(categoryId)) {
-                btn.classList.add('active');
-            }
-        });
-
-        // Get Data
-        const category = DATABASE.categories.find(c => c.id === categoryId);
-        
-        if (category && category.items) {
-            category.items.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = 'card animate-enter';
-                card.style.animationDelay = `${index * 0.05}s`;
-                card.onclick = () => this.openForm(item.id, item.name);
-                
-                // Badge Logic
-                let badgeClass = 'badge-info';
-                if(item.status.includes('Promo')) badgeClass = 'badge-warning';
-                if(item.status.includes('Instan')) badgeClass = 'badge-success';
-                if(item.status.includes('Rare')) badgeClass = 'badge-danger';
-
-                card.innerHTML = `
-                    <div class="card-img-wrapper">
-                        <img src="${item.img}" alt="${item.name}" loading="lazy">
-                    </div>
-                    <h4>${item.name}</h4>
-                    <span class="card-status ${badgeClass}">${item.status}</span>
-                `;
-                grid.appendChild(card);
-            });
-        }
-    }
-
-    /**
-     * Membuka form pemesanan produk.
-     * @param {string} id - ID Game/Produk
-     * @param {string} name - Nama Game/Produk
-     */
-    static openForm(id, name) {
-        CartState.reset();
-        CartState.data.gameId = id;
-        CartState.data.gameName = name;
-
-        const grid = document.getElementById('home-grid');
-        grid.style.display = 'block'; // Switch grid to block for form view
-
-        // Auto-load last input
-        const lastId = localStorage.getItem('last_user_id') || "";
-        let formInputHTML = "";
-        let productSectionHTML = "";
-
-        const productList = DATABASE.products[id];
-        
-        // --- 1. HANDLING STOK KOSONG ---
-        if (id !== 'joki_ml' && (!productList || productList.length === 0)) {
-            grid.innerHTML = `
-                <div style="background:var(--bg-surface); padding:40px 20px; border-radius:16px; border:1px solid var(--border); text-align:center; margin-bottom:50px;">
-                    <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:20px;">
-                        <button onclick="Commerce.renderCategory('games')" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-main);"><i class="fa-solid fa-arrow-left"></i></button>
-                        <h3 style="margin:0;">${name}</h3>
-                    </div>
-                    <i class="fa-solid fa-box-open" style="font-size:4rem;color:var(--text-muted);margin-bottom:15px;opacity:0.5;"></i>
-                    <h4 style="color:var(--text-main);">Stok Belum Tersedia</h4>
-                    <p style="color:var(--text-muted);font-size:0.9rem;">Produk ini sedang kosong atau belum diupdate admin.<br>Silakan cek kembali nanti.</p>
-                    <button onclick="Commerce.renderCategory('games')" class="btn-pay" style="width:auto;padding:10px 25px;margin-top:20px;background:var(--bg-surface-2);border:1px solid var(--border);">Kembali ke Menu</button>
-                </div>
-            `;
-            return;
-        }
-
-        // --- 2. LOGIKA FORM KHUSUS (JOKI) ---
-        if (id === 'joki_ml') {
-            const ranks = ["Grandmaster", "Epic", "Legend", "Mythic"];
-            const tiers = ["V", "IV", "III", "II", "I"];
-            const rO = ranks.map((x,i)=>`<option value="${i}">${x}</option>`).join('');
-            const tO = tiers.map((x,i)=>`<option value="${i}">${x}</option>`).join('');
-
-            formInputHTML = `
-                <div style="background:var(--bg-surface-2); padding:15px; border-radius:10px; border:1px solid var(--border); margin-bottom:20px;">
-                    <h4 style="color:var(--primary);margin-bottom:10px;"><i class="fa-solid fa-calculator"></i> Kalkulator Joki</h4>
-                    <div style="display:flex;gap:5px;margin-bottom:10px;">
-                        <select id="joki-rank-start" class="form-input" onchange="calcJoki()">${rO}</select>
-                        <select id="joki-tier-start" class="form-input" onchange="calcJoki()">${tO}</select>
-                        <input type="number" id="joki-star-start" class="form-input" placeholder="Bintang" onchange="calcJoki()">
-                    </div>
-                    <div style="display:flex;gap:5px;margin-bottom:15px;">
-                        <select id="joki-rank-end" class="form-input" onchange="calcJoki()">${rO}</select>
-                        <select id="joki-tier-end" class="form-input" onchange="calcJoki()">${tO}</select>
-                        <input type="number" id="joki-star-end" class="form-input" placeholder="Bintang" onchange="calcJoki()">
-                    </div>
-                    <div style="border-top:1px dashed var(--border); padding-top:10px; display:flex; justify-content:space-between;">
-                        <span>Total: <b id="joki-total-stars">0</b> Bintang</span>
-                        <b id="joki-total-price" style="color:var(--primary); font-size:1.2rem;">Rp 0</b>
-                    </div>
-                </div>
-                <div class="form-group"><label>Login Via</label><select id="input-login" class="form-input"><option>Moonton</option><option>VK</option><option>TikTok</option></select></div>
-                <div class="form-group"><label>Email / No HP</label><input type="text" id="input-email" class="form-input"></div>
-                <div class="form-group"><label>Password</label><input type="text" id="input-pass" class="form-input"></div>
-            `;
-            productSectionHTML = `<div style="text-align:center;padding:15px;color:var(--text-muted);font-style:italic;">Harga dihitung otomatis oleh sistem.</div>`;
-        } 
-        // --- 3. LOGIKA FORM NORMAL ---
-        else {
-            if(id.includes('murid')) {
-                formInputHTML = `<div class="form-group"><label>Nama Lengkap</label><input id="input-nama" class="form-input" placeholder="Nama Kamu"></div><div class="form-group"><label>Nomor WhatsApp</label><input id="input-wa" class="form-input" placeholder="08xx (Wajib Aktif)"></div>`;
-            } else if(id === 'ml') {
-                formInputHTML = `<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;"><div class="form-group"><label>User ID</label><input id="input-id" class="form-input" value="${lastId}" placeholder="123456"></div><div class="form-group"><label>Server</label><input id="input-server" class="form-input" placeholder="1234"></div></div>`;
-            } else if(id === 'genshin') {
-                formInputHTML = `<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;"><div class="form-group"><label>UID</label><input id="input-id" class="form-input" value="${lastId}"></div><div class="form-group"><label>Server</label><select id="input-server" class="form-input"><option>Asia</option><option>America</option><option>Europe</option></select></div></div>`;
-            } else {
-                formInputHTML = `<div class="form-group"><label>Data Target (ID/HP)</label><input id="input-data" class="form-input" value="${lastId}" placeholder="Masukkan ID / No HP"></div>`;
-            }
-
-            productSectionHTML = `
-                <h4 style="margin:20px 0 10px;">Pilih Nominal</h4>
-                <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px;">
-                    ${productList.map((p, i) => `
-                        <div id="prod-${i}" onclick="selProd(${i}, '${p.name}', ${p.price})" class="selection-card" style="padding:15px;border:1px solid var(--border);border-radius:10px;text-align:center;cursor:pointer;background:var(--bg-surface);display:flex;flex-direction:column;align-items:center;gap:5px;transition:0.2s;">
-                            ${p.img ? `<img src="${p.img}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-bottom:5px;">` : ''}
-                            <b style="font-size:0.9rem;">${p.name}</b>
-                            <span style="color:var(--primary);font-weight:bold;">${Utils.formatCurrency(p.price)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        // --- RENDER FORM LENGKAP ---
-        grid.innerHTML = `
-            <div style="background:var(--bg-surface);padding:20px;border-radius:16px;border:1px solid var(--border);margin-bottom:100px;animation:slideUp 0.3s;">
-                
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;border-bottom:1px dashed var(--border);padding-bottom:10px;">
-                    <button onclick="Commerce.renderCategory('games')" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-main);"><i class="fa-solid fa-arrow-left"></i></button>
-                    <h3 style="margin:0;">Order ${name}</h3>
-                </div>
-                
-                ${formInputHTML}
-                
-                ${productSectionHTML}
-
-                <div style="margin: 20px 0;">
-                    <label style="font-size:0.8rem; font-weight:bold; color:var(--text-muted); margin-bottom:5px; display:block;">Kode Voucher (Opsional)</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="input-voucher" class="form-input" placeholder="MASUKAN KODE" style="text-transform:uppercase; width:100%;">
-                        <button onclick="applyVoucher()" class="btn-voucher-check">CEK</button>
-                    </div>
-                    <small id="voucher-msg" style="display:block;margin-top:5px;font-weight:bold;"></small>
-                </div>
-
-                <h4 style="margin:20px 0 10px;">Metode Pembayaran</h4>
-                <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">
-                    ${DATABASE.paymentMethods.map((m,i)=>`
-                        <div id="pay-${i}" onclick="selPay(${i},'${m.code}')" class="selection-card" style="padding:10px;border:1px solid var(--border);border-radius:10px;text-align:center;cursor:pointer;background:var(--bg-surface);transition:0.2s;">
-                            <img src="${m.img}" style="height:25px;object-fit:contain;margin-bottom:5px;">
-                            <span style="font-size:0.75rem;display:block;">${m.code}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
-            <div style="position:fixed;bottom:0;left:0;width:100%;padding:15px;background:var(--bg-surface);border-top:1px solid var(--border);z-index:99;display:flex;justify-content:center;box-shadow:0 -5px 20px rgba(0,0,0,0.2);">
-                <button onclick="Commerce.processCheckout('${id}')" class="btn-pay" style="width:100%;max-width:600px;padding:15px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;background:var(--primary);color:white;font-size:1rem;">BAYAR SEKARANG</button>
-            </div>
-        `;
-    }
-
-    /**
-     * Memproses logika checkout saat tombol bayar ditekan.
+     * Memproses checkout, validasi data, simpan ke database (MySQL), dan kirim ke Telegram.
      */
     static async processCheckout(id) {
+        // 1. Validasi Metode Pembayaran
         if (!CartState.data.paymentMethod) return UIManager.toast.error("Pilih Metode Pembayaran dulu!");
 
         let userData = "";
 
-        // Validasi Form Khusus Joki
+        // 2. Validasi Form Khusus Joki
         if (id === 'joki_ml') {
             const priceText = document.getElementById('joki-total-price').innerText;
             const price = parseInt(priceText.replace(/\D/g,''));
@@ -944,7 +725,7 @@ class Commerce {
             if(!e||!p) return UIManager.toast.error("Email & Password Wajib Diisi!");
             userData = `Login: ${l}\nEmail: ${e}\nPass: ${p}`;
         } 
-        // Validasi Form Normal
+        // 3. Validasi Form Normal
         else {
             if (!CartState.data.itemName) return UIManager.toast.error("Silakan Pilih Item/Produk!");
             
@@ -967,29 +748,52 @@ class Commerce {
             }
         }
 
-        // Terapkan Diskon
+        // 4. Terapkan Diskon
         if(CartState.data.discount > 0) {
             CartState.data.itemPrice = Math.max(0, CartState.data.itemPrice - CartState.data.discount);
         }
 
-        // Finalisasi Data Order
+        // 5. Finalisasi Data Order
         CartState.data.userData = userData;
         CartState.data.invoiceId = Utils.generateInvoiceId();
         CartState.data.timestamp = Utils.getCurrentDateTime();
         CartState.data.status = 'Pending';
 
-        // Simpan ke Riwayat Lokal
+        // 6. Simpan ke Riwayat Lokal (LocalStorage HP)
         let history = StorageService.get(AppConfig.storage.keys.ORDERS) || [];
         history.unshift(CartState.data);
         StorageService.set(AppConfig.storage.keys.ORDERS, history);
 
         UIManager.toast.info("Membuat Invoice...");
+
+        // ============================================================
+        // [BARU] KIRIM KE DATABASE MYSQL (LOCALHOST) 🚀
+        // ============================================================
+        try {
+            await fetch('simpan_order.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceId: CartState.data.invoiceId,
+                    gameName: CartState.data.gameName,
+                    itemName: CartState.data.itemName,
+                    itemPrice: CartState.data.itemPrice,
+                    userData: CartState.data.userData
+                })
+            });
+            console.log("✅ Data berhasil disimpan ke Database MySQL!");
+        } catch (err) {
+            console.error("❌ Gagal simpan ke database:", err);
+            // Tetap lanjut meski database error, supaya pembeli tidak macet
+        }
+        // ============================================================
+
         await Utils.sleep(1000);
         
-        // Kirim Notifikasi ke Telegram Admin
+        // 7. Kirim Notifikasi ke Telegram Admin
         TelegramService.sendOrder(CartState.data);
         
-        // Tampilkan Halaman Invoice
+        // 8. Tampilkan Halaman Invoice
         this.renderInvoice();
     }
 
